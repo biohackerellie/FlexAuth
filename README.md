@@ -28,6 +28,7 @@ go get github.com/biohackerellie/flexauth
 ## Quick Start
 
 ### OAuth Provider (Microsoft Entra)
+
 <details>
 
 <summary>Expand</summary>
@@ -361,6 +362,7 @@ func (p *GitHubProvider) RefreshToken(ctx context.Context, refreshToken string) 
 ```
 
 </details>
+
 ### 3. Usage Example
 
 <details>
@@ -427,6 +429,7 @@ func TestGitHubProvider(t *testing.T) {
 ```
 
 </details>
+
 ## Contributing
 
 We welcome contributions! To add a new provider:
