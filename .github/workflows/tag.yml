@@ -1,0 +1,22 @@
+name: Custom Auto Tag
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps: 
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: biohackerellie/auto-git-tag@v1
+      id: tag 
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        release_branch: 'main' # Optional, default is 'release'
