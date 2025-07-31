@@ -13,6 +13,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Add token storage structures
+type TokenSession struct {
+	UserID       string
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    time.Time
+	CreatedAt    time.Time
+}
+
 // EmailProvider implements password-based authentication
 type EmailProvider struct {
 	storage     UserStorage
@@ -21,11 +30,16 @@ type EmailProvider struct {
 	// In-memory cache for 2FA codes and temp tokens
 	codeCache  map[string]*TwoFASession
 	tokenCache map[string]*TempSession
-	cacheMux   sync.RWMutex
+
+	accessTokens  map[string]*TokenSession // accessToken -> TokenSession
+	refreshTokens map[string]*TokenSession // refreshToken -> TokenSession
+
+	cacheMux sync.RWMutex
 
 	// Configuration
-	codeExpiry  time.Duration
-	tokenExpiry time.Duration
+	codeExpiry        time.Duration
+	tokenExpiry       time.Duration
+	accessTokenExpiry time.Duration
 }
 
 // TwoFASession stores 2FA verification data
@@ -51,12 +65,15 @@ type EmailSender interface {
 // NewEmailProvider creates a new email/password provider
 func NewEmailProvider(storage UserStorage, emailSender EmailSender) *EmailProvider {
 	p := &EmailProvider{
-		storage:     storage,
-		emailSender: emailSender,
-		codeCache:   make(map[string]*TwoFASession),
-		tokenCache:  make(map[string]*TempSession),
-		codeExpiry:  5 * time.Minute,  // 2FA codes expire in 5 minutes
-		tokenExpiry: 10 * time.Minute, // Temp tokens expire in 10 minutes
+		storage:           storage,
+		emailSender:       emailSender,
+		codeCache:         make(map[string]*TwoFASession),
+		tokenCache:        make(map[string]*TempSession),
+		accessTokens:      make(map[string]*TokenSession),
+		refreshTokens:     make(map[string]*TokenSession),
+		codeExpiry:        5 * time.Minute,  // 2FA codes expire in 5 minutes
+		tokenExpiry:       10 * time.Minute, // Temp tokens expire in 10 minutes
+		accessTokenExpiry: 1 * time.Hour,    // Access tokens expire in 1 hour
 	}
 
 	// Start cleanup goroutine
@@ -69,24 +86,22 @@ func (p *EmailProvider) GetAuthType() flexauth.AuthType {
 	return flexauth.AuthTypePassword
 }
 
-// Implement OAuth Provider interface methods (these will be used differently)
+// Implement OAuth Provider interface methods
 func (p *EmailProvider) GetAuthURL(state string, scopes ...string) (string, error) {
-	// For password auth, this could return a login form URL or just be unused
 	return fmt.Sprintf("/login?state=%s", state), nil
 }
 
 func (p *EmailProvider) ExchangeCodeForToken(ctx context.Context, code string) (*flexauth.TokenResponse, error) {
-	// This will be our 2FA verification essentially
+	// This will be our 2FA verification essentially - but we need the temp token
+	// This method is less useful for password auth, but required by interface
 	return p.verify2FAByCode(ctx, code)
 }
 
 func (p *EmailProvider) GetUserInfo(ctx context.Context, accessToken string) (*flexauth.UserInfo, error) {
-	// Verify access token and return user info
 	return p.getUserByAccessToken(ctx, accessToken)
 }
 
 func (p *EmailProvider) RefreshToken(ctx context.Context, refreshToken string) (*flexauth.TokenResponse, error) {
-	// Standard refresh token logic
 	return p.refreshAccessToken(ctx, refreshToken)
 }
 
@@ -160,6 +175,8 @@ func (p *EmailProvider) Verify2FA(ctx context.Context, tempToken, code string) (
 		return nil, fmt.Errorf("invalid 2FA code")
 	}
 
+	userID := session.UserID
+
 	// Clean up used codes/tokens
 	delete(p.codeCache, tempToken)
 	delete(p.tokenCache, tempToken)
@@ -169,14 +186,25 @@ func (p *EmailProvider) Verify2FA(ctx context.Context, tempToken, code string) (
 	accessToken := generateSecureToken()
 	refreshToken := generateSecureToken()
 
-	// Store tokens (you'd want to store these in a more persistent way)
-	// For now, we'll return them and let the user handle storage
+	// Store token session
+	tokenSession := &TokenSession{
+		UserID:       userID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(p.accessTokenExpiry),
+		CreatedAt:    time.Now(),
+	}
+
+	p.cacheMux.Lock()
+	p.accessTokens[accessToken] = tokenSession
+	p.refreshTokens[refreshToken] = tokenSession
+	p.cacheMux.Unlock()
 
 	return &flexauth.TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    3600, // 1 hour
+		ExpiresIn:    int(p.accessTokenExpiry.Seconds()),
 	}, nil
 }
 
@@ -243,22 +271,91 @@ func (p *EmailProvider) cleanupExpired() {
 				delete(p.tokenCache, token)
 			}
 		}
+
+		// Clean up expired access tokens
+		for token, session := range p.accessTokens {
+			if now.After(session.ExpiresAt) {
+				delete(p.accessTokens, token)
+				// Remove corresponding refresh token
+				delete(p.refreshTokens, session.RefreshToken)
+			}
+		}
 		p.cacheMux.Unlock()
 	}
 }
 
-// Placeholder implementations - you'd implement these properly
+// Now implement the required methods properly
+
 func (p *EmailProvider) verify2FAByCode(context.Context, string) (*flexauth.TokenResponse, error) {
-	// Implementation depends on how you want to handle this
-	return nil, fmt.Errorf("use Verify2FA method instead")
+	// This is a fallback method - in practice, you'd need both temp token and code
+	// For the interface compatibility, we'll return an error suggesting the proper method
+	return nil, fmt.Errorf("use Verify2FA method with temp token instead")
 }
 
-func (p *EmailProvider) getUserByAccessToken(context.Context, string) (*flexauth.UserInfo, error) {
-	// You'd implement token validation and user lookup
-	return nil, fmt.Errorf("not implemented - implement token storage/validation")
+func (p *EmailProvider) getUserByAccessToken(ctx context.Context, accessToken string) (*flexauth.UserInfo, error) {
+	p.cacheMux.RLock()
+	session, exists := p.accessTokens[accessToken]
+	p.cacheMux.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("invalid access token")
+	}
+
+	// Check if token is expired
+	if time.Now().After(session.ExpiresAt) {
+		// Clean up expired token
+		p.cacheMux.Lock()
+		delete(p.accessTokens, accessToken)
+		delete(p.refreshTokens, session.RefreshToken)
+		p.cacheMux.Unlock()
+		return nil, fmt.Errorf("access token expired")
+	}
+
+	// Get user info from storage
+	user, err := p.storage.GetUserByID(ctx, session.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	return user.ToUserInfo(), nil
 }
 
-func (p *EmailProvider) refreshAccessToken(context.Context, string) (*flexauth.TokenResponse, error) {
-	// You'd implement refresh token validation and new token generation
-	return nil, fmt.Errorf("not implemented - implement token storage/validation")
+func (p *EmailProvider) refreshAccessToken(_ context.Context, refreshToken string) (*flexauth.TokenResponse, error) {
+	p.cacheMux.RLock()
+	session, exists := p.refreshTokens[refreshToken]
+	p.cacheMux.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("invalid refresh token")
+	}
+
+	// Generate new access token
+	newAccessToken := generateSecureToken()
+	newRefreshToken := generateSecureToken()
+
+	// Create new token session
+	newSession := &TokenSession{
+		UserID:       session.UserID,
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresAt:    time.Now().Add(p.accessTokenExpiry),
+		CreatedAt:    time.Now(),
+	}
+
+	p.cacheMux.Lock()
+	// Remove old tokens
+	delete(p.accessTokens, session.AccessToken)
+	delete(p.refreshTokens, refreshToken)
+
+	// Store new tokens
+	p.accessTokens[newAccessToken] = newSession
+	p.refreshTokens[newRefreshToken] = newSession
+	p.cacheMux.Unlock()
+
+	return &flexauth.TokenResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    int(p.accessTokenExpiry.Seconds()),
+	}, nil
 }

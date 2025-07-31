@@ -30,6 +30,20 @@ func (m *mockUserStorage) GetUserByEmail(ctx context.Context, email string) (*St
 	return user, nil
 }
 
+func (m *mockUserStorage) GetUserByID(ctx context.Context, userID string) (*StoredUser, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, user := range m.users {
+		if user.ID == userID {
+			return user, nil
+		}
+	}
+
+	return nil, errors.New("user not found")
+}
+
 func (m *mockUserStorage) CreateUser(ctx context.Context, email, hashedPassword string) (*StoredUser, error) {
 	if m.err != nil {
 		return nil, m.err
