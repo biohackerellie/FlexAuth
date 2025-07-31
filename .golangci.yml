@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+version: "2"
+run:
+  tests: true
+output:
+  formats:
+    text:
+      path: stdout
+linters:
+  enable:
+    - bodyclose
+    - goconst
+    - goprintffuncname
+    - gosec
+    - misspell
+    - prealloc
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+  settings:
+    gosec:
+      excludes:
+        - G115
+        - G404
+        - G101
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: 'G404: Use of weak random number generator'
+      - path: (.+)\.go$
+        text: 'G115: Integer overflow conversion'
+    paths:
+      - ".*\\_test\\.go$"
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
