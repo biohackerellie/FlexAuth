@@ -1,6 +1,6 @@
 # FlexAuth
 
-A simple, flexible authentication library for Go that provides easy integration with various authentication providers. Inspired by [Arctic.js](https://arctic.dev/), this library focuses purely on authentication flows without imposing session management decisions on your application.
+A simple, flexible authentication library for Go that provides easy integration with various authentication providers. Inspired by [Arctic.js](https://github.com/pilcrowOnPaper/arctic), this library focuses purely on authentication flows without imposing session management decisions on your application.
 
 ## Features
 
