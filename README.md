@@ -28,6 +28,9 @@ go get github.com/biohackerellie/flexauth
 ## Quick Start
 
 ### OAuth Provider (Microsoft Entra)
+<details>
+
+<summary>Expand</summary>
 
 ```go
 package main
@@ -75,7 +78,14 @@ func main() {
 }
 ```
 
+</details>
+
 ### Email/Password Provider with 2FA
+
+
+<details>
+
+<summary>Expand</summary>
 
 ```go
 package main
@@ -151,6 +161,10 @@ func main() {
 }
 ```
 
+
+</details>
+
+
 ## API Endpoints
 
 ### OAuth Providers
@@ -166,6 +180,12 @@ func main() {
 ## Token Refresh
 
 The library provides programmatic token refresh without exposing refresh tokens to HTTP clients:
+
+
+
+<details>
+
+<summary>Expand</summary>
 
 ```go
 // In your middleware or authentication logic
@@ -184,6 +204,8 @@ if err != nil {
 updateTokensInDatabase(userID, newTokens.AccessToken, newTokens.RefreshToken)
 ```
 
+</details>
+
 ## Creating a Custom Provider
 
 Want to add support for a new OAuth provider? Here's how:
@@ -200,6 +222,10 @@ providers/
 ```
 
 ### 2. Implement the Provider Interface
+
+<details>
+
+<summary>Expand</summary>
 
 ```go
 // providers/github/github.go
@@ -334,7 +360,12 @@ func (p *GitHubProvider) RefreshToken(ctx context.Context, refreshToken string) 
 }
 ```
 
+</details>
 ### 3. Usage Example
+
+<details>
+
+<summary>Expand</summary>
 
 ```go
 package main
@@ -395,6 +426,7 @@ func TestGitHubProvider(t *testing.T) {
 }
 ```
 
+</details>
 ## Contributing
 
 We welcome contributions! To add a new provider:
