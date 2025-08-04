@@ -27,6 +27,9 @@ type Provider interface {
 
 	// RefreshToken refreshes the access token using the refresh token
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error)
+
+	// Checks if Provider has a refresh token
+	HasRefreshToken() bool
 }
 
 // TokenResponse represents the response from token exchange

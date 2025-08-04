@@ -9,15 +9,13 @@ A simple, flexible authentication library for Go that provides easy integration 
 - 🔐 **Provider-agnostic**: Interface-based design for easy extensibility
 - 🚀 **No session management**: You control how tokens and user data are stored
 - 🌐 **HTTP handlers included**: Ready-to-use endpoints for web applications
-- 🔒 **Multiple auth types**: OAuth and password-based authentication
 - 🛡️ **Security focused**: State verification, secure token generation, bcrypt hashing
-- 📧 **2FA support**: Built-in email-based two-factor authentication
 - 🎯 **Go-idiomatic**: Clean interfaces and error handling
 
 ## Currently Supported Providers
 
 - **Microsoft Entra ID** (Azure AD) - OAuth 2.0
-- **Email/Password** - Traditional authentication with 2FA support
+- **GitHub** - OAuth 2.0
 
 More providers coming soon! Contributions welcome.
 
@@ -83,90 +81,6 @@ func main() {
 
 </details>
 
-### Email/Password Provider with 2FA
-
-
-<details>
-
-<summary>Expand</summary>
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "net/http"
-    
-    "github.com/biohackerellie/flexauth"
-    "github.com/biohackerellie/flexauth/providers/email"
-)
-
-// Implement user storage interface
-type DatabaseUserStorage struct {
-    // Your database connection
-}
-
-func (db *DatabaseUserStorage) GetUserByEmail(ctx context.Context, email string) (*email.StoredUser, error) {
-    // Query your database
-    return &email.StoredUser{
-        ID:       "user123",
-        Email:    email,
-        Password: "$2a$10$...", // bcrypt hash
-        Name:     "John Doe",
-    }, nil
-}
-
-func (db *DatabaseUserStorage) CreateUser(ctx context.Context, email, hashedPassword string) (*email.StoredUser, error) {
-    // Create user in database
-    return &email.StoredUser{
-        ID:       "newuser123",
-        Email:    email,
-        Password: hashedPassword,
-    }, nil
-}
-
-func (db *DatabaseUserStorage) UpdateUserPassword(ctx context.Context, userID, hashedPassword string) error {
-    // Update password in database
-    return nil
-}
-
-// Implement email sender interface
-type EmailSender struct {
-    // Your email service configuration
-}
-
-func (e *EmailSender) SendCode(ctx context.Context, email, code string) error {
-    // Send 2FA code via email
-    log.Printf("Sending 2FA code %s to %s", code, email)
-    return nil
-}
-
-func main() {
-    oauthHandlers := flexauth.NewOAuthHandlers()
-    
-    // Setup email/password provider
-    userStorage := &DatabaseUserStorage{}
-    emailSender := &EmailSender{}
-    emailProvider := email.NewEmailProvider(userStorage, emailSender)
-    oauthHandlers.RegisterProvider("email", emailProvider)
-    
-    // Setup routes
-    mux := http.NewServeMux()
-    
-    // Email/Password routes
-    mux.HandleFunc("POST /auth/{provider}/login", oauthHandlers.LoginHandler)
-    mux.HandleFunc("POST /auth/{provider}/verify", oauthHandlers.Verify2FAHandler)
-    mux.HandleFunc("POST /auth/{provider}/resend", oauthHandlers.ResendCodeHandler)
-    mux.HandleFunc("POST /auth/{provider}/register", oauthHandlers.RegisterHandler)
-    
-    log.Fatal(http.ListenAndServe(":8080", mux))
-}
-```
-
-
-</details>
-
 
 ## API Endpoints
 
@@ -174,11 +88,6 @@ func main() {
 - `GET /auth/{provider}` - Initiate OAuth flow
 - `GET /auth/{provider}/callback` - Handle OAuth callback
 
-### Email/Password Provider
-- `POST /auth/{provider}/login` - Login with email/password
-- `POST /auth/{provider}/verify` - Verify 2FA code
-- `POST /auth/{provider}/resend` - Resend 2FA code
-- `POST /auth/{provider}/register` - Register new user
 
 ## Token Refresh
 

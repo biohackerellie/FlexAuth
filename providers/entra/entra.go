@@ -165,3 +165,7 @@ func (p *EntraProvider) RefreshToken(ctx context.Context, refreshToken string) (
 
 	return &tokenResp, nil
 }
+
+func (p *EntraProvider) HasRefreshToken() bool {
+	return true
+}
