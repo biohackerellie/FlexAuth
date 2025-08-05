@@ -33,6 +33,10 @@ func NewEntraProvider(config flexauth.Config, tenantID string) *EntraProvider {
 	}
 }
 
+func (p *EntraProvider) GetAuthType() flexauth.AuthType {
+	return flexauth.AuthTypeOauth
+}
+
 func (p *EntraProvider) GetAuthURL(state string, scopes ...string) (string, error) {
 	if len(scopes) == 0 {
 		scopes = defaultScopes
