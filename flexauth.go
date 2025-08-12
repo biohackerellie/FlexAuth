@@ -7,14 +7,12 @@ import (
 type AuthType string
 
 const (
-	AuthTypeOauth    AuthType = "oauth"
-	AuthTypePassword AuthType = "password"
+	AuthTypeOauth AuthType = "oauth"
+	AuthTypeEmail AuthType = "email"
 )
 
 // Provider defines the interface that all OAuth providers must implement
 type Provider interface {
-	// GetAuthType returns the authentication type of the provider
-	GetAuthType() AuthType
 
 	// GetAuthURL generates the authorization URL for the OAuth flow
 	GetAuthURL(state string, scopes ...string) (string, error)
@@ -60,22 +58,6 @@ type Config struct {
 }
 
 type ProviderRegistry map[string]Provider
-
-type PasswordProvider interface {
-	Provider
-
-	// Authenticate with email/password, returns temporary token for 2FA
-	Authenticate(ctx context.Context, email, password string) (*AuthResponse, error)
-
-	// Verify 2FA code and complete authentication
-	Verify2FA(ctx context.Context, tempToken, code string) (*TokenResponse, error)
-
-	// Send 2FA code to user's email
-	Send2FACode(ctx context.Context, tempToken string) error
-
-	// Register new user (optional - might not be needed for all use cases)
-	Register(ctx context.Context, email, password string) (*UserInfo, error)
-}
 
 // AuthResponse for the initial authentication step with 2FA
 type AuthResponse struct {
