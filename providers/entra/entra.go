@@ -14,6 +14,7 @@ const (
 	authURLTemplate  = "https://login.microsoftonline.com/%s/oauth2/v2.0/authorize"
 	tokenURLTemplate = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
 	userInfoURL      = "https://graph.microsoft.com/v1.0/me"
+	providerName     = "entra"
 )
 
 var defaultScopes = []string{"User.Read", "email", "profile", "openid", "offline_access"}
@@ -31,6 +32,10 @@ func NewEntraProvider(config flexauth.Config, tenantID string) *EntraProvider {
 		tenantID: tenantID,
 		client:   &http.Client{},
 	}
+}
+
+func (p *EntraProvider) Name() string {
+	return providerName
 }
 
 func (p *EntraProvider) GetAuthType() flexauth.AuthType {

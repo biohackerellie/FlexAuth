@@ -28,6 +28,9 @@ type Provider interface {
 
 	// Checks if Provider has a refresh token
 	HasRefreshToken() bool
+
+	// Get Provider Name
+	Name() string
 }
 
 // TokenResponse represents the response from token exchange
